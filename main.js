@@ -1,0 +1,131 @@
+const config = {
+    type: Phaser.AUTO,
+    width: 600,
+    height: 500,
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 800 },
+            debug: true
+        }
+    },
+    scale: {
+        mode: Phaser.Scale.NONE,
+        parent: 'game-container',
+        width: 600,
+        height: 500
+    },
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
+    }
+};
+
+let player;
+let cursors;
+let platforms;
+let staticSpikes;
+let movingSpikes;
+let deathZone;
+let isDead=false;
+
+const game = new Phaser.Game(config);
+
+function preload() {
+    this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
+    this.load.image('spike', 'https://labs.phaser.io/assets/sprites/spikedball.png');
+    this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
+    this.load.audio('bgm', 'bgm.mp3');
+}
+
+function create() {
+
+    this.physics.world.setBounds(0, 0, 1000, 500);
+
+    platforms = this.physics.add.staticGroup();
+    platforms.create(150, 480, 'ground').setScale(0.75, 1).refreshBody();
+    platforms.create(500, 480, 'ground').setScale(0.25, 3).refreshBody();
+    platforms.create(700, 480, 'ground').setScale(0.25, 1).refreshBody();
+    platforms.create(900, 480, 'ground').setScale(0.25, 1).refreshBody();
+
+    player = this.physics.add.sprite(50, 400, 'player');
+    player.setCollideWorldBounds(true);
+
+
+    this.cameras.main.setBounds(0, 0, 1000, 500);
+    this.cameras.main.startFollow(player, false, 1, 1);
+
+    this.physics.add.collider(player, platforms);
+
+    staticSpikes = this.physics.add.staticGroup();
+    staticSpikes.create(600, 440, 'spike').setScale(0.5).refreshBody();
+    staticSpikes.create(200, 450, 'spike').setScale(0.5).refreshBody();
+
+    this.physics.add.overlap(player, staticSpikes, () => {
+        playerDie();
+    }, null, this);
+
+    movingSpikes = this.physics.add.group();
+
+    let spike = movingSpikes.create(400, 300, 'spike').setScale(0.5);
+    spike.setVelocityX(100);
+    spike.setCollideWorldBounds(true);
+    spike.setBounce(1);
+
+    this.physics.add.overlap(player, movingSpikes, playerDie, null, this);
+
+    deathZone = this.physics.add.staticSprite(500, 500, null);
+    deathZone.displayWidth = 1000;
+    deathZone.displayHeight = 1;
+    deathZone.refreshBody();
+    deathZone.visible = false;
+
+    this.physics.add.overlap(player, deathZone, playerDie, null, this);
+
+    cursors = this.input.keyboard.createCursorKeys();
+
+    const music = this.sound.add('bgm', {
+        loop: true,
+        volume: 0
+    });
+    music.play();
+
+    this.tweens.add({
+        targets: music,
+        volume: 0.5,
+        duration: 100
+    });
+}
+
+function update() {
+    if (cursors.left.isDown) {
+        player.setVelocityX(-200);
+    } else if (cursors.right.isDown) {
+        player.setVelocityX(200);
+    } else {
+        player.setVelocityX(0);
+    }
+
+    if (cursors.up.isDown && player.body.touching.down) {
+        player.setVelocityY(-400);
+    }
+
+    
+}
+
+function playerDie() {
+    if (isDead) return;
+    isDead = true;
+
+    player.setTint(0xff0000);
+    player.setVelocity(0, 0);
+
+    player.body.enable = false;
+
+    setTimeout(() => {
+        location.reload();
+    }, 500);
+}
+
+
