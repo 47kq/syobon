@@ -68,10 +68,31 @@ function create() {
 
     movingSpikes = this.physics.add.group();
 
-    let spike = movingSpikes.create(400, 300, 'spike').setScale(0.5);
-    spike.setVelocityX(100);
-    spike.setCollideWorldBounds(true);
-    spike.setBounce(1);
+    let spikesData = [
+        { x: 400, y: 300, type: 'fall' ,vx:100},
+        { x: 800, y: 300, vy: 200, type: 'vertical',range:200,duration:1000 }
+    ];
+
+    spikesData.forEach(data => {
+        let spike = movingSpikes.create(data.x, data.y, 'spike').setScale(0.5);
+
+        if (data.type === 'fall') {
+            spike.setVelocityX(data.vx);
+            spike.setCollideWorldBounds(true);
+            spike.setBounce(1);
+        } 
+
+        if (data.type === 'vertical') {
+            spike.body.allowGravity = false;
+            this.tweens.add({
+                targets: spike,
+                y: data.y + data.range,
+                duration: data.duration,
+                yoyo: true,
+                repeat: -1
+            });
+        } 
+    });
 
     this.physics.add.overlap(player, movingSpikes, playerDie, null, this);
 
