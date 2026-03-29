@@ -29,7 +29,8 @@ let movingplatforms;
 let staticSpikes;
 let movingSpikes;
 let deathZone;
-let isDead=false;
+let isDead = false;
+let jumpSound;
 
 const game = new Phaser.Game(config);
 
@@ -38,6 +39,7 @@ function preload() {
     this.load.image('spike', 'https://labs.phaser.io/assets/sprites/spikedball.png');
     this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
     this.load.audio('bgm', 'bgm.mp3');
+    this.load.audio('jump', 'lumora_studios-pixel-jump-319167.mp3');
 }
 
 function create() {
@@ -50,6 +52,7 @@ function create() {
     platforms.create(700, 480, 'ground').setScale(0.25, 1).refreshBody();
     platforms.create(900, 480, 'ground').setScale(0.25, 1).refreshBody();
     platforms.create(1450, 480, 'ground').setScale(0.1, 2).refreshBody();
+    platforms.create(1800, 480, 'ground').setScale(1, 1).refreshBody();
 
     player = this.physics.add.sprite(50, 400, 'player');
     player.setCollideWorldBounds(true);
@@ -153,6 +156,10 @@ function create() {
         volume: 0.5,
         duration: 100
     });
+
+    jumpSound = this.sound.add('jump');
+
+
 }
 
 function update() {
@@ -166,6 +173,7 @@ function update() {
 
     if (cursors.up.isDown && player.body.touching.down) {
         player.setVelocityY(-400);
+        jumpSound.play();
     }
 
     movingplatforms.getChildren().forEach(p => {
