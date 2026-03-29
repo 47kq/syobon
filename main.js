@@ -25,6 +25,7 @@ const config = {
 let player;
 let cursors;
 let platforms;
+let movingplatforms;
 let staticSpikes;
 let movingSpikes;
 let deathZone;
@@ -41,19 +42,54 @@ function preload() {
 
 function create() {
 
-    this.physics.world.setBounds(0, 0, 1000, 500);
+    this.physics.world.setBounds(0, 0, 2000, 500);
 
     platforms = this.physics.add.staticGroup();
     platforms.create(150, 480, 'ground').setScale(0.75, 1).refreshBody();
     platforms.create(500, 480, 'ground').setScale(0.25, 3).refreshBody();
     platforms.create(700, 480, 'ground').setScale(0.25, 1).refreshBody();
     platforms.create(900, 480, 'ground').setScale(0.25, 1).refreshBody();
+    platforms.create(1450, 480, 'ground').setScale(0.1, 2).refreshBody();
 
     player = this.physics.add.sprite(50, 400, 'player');
     player.setCollideWorldBounds(true);
 
+    movingplatforms = this.physics.add.group({
+        allowGravity: false,
+        immovable: true
+    });
 
-    this.cameras.main.setBounds(0, 0, 1000, 500);
+    const createMovingPlatform=(scene, x, y, dx,dy, speed)=> {
+        let p = movingplatforms.create(x, y, 'ground').setScale(0.25, 1);
+
+        p.prevX = p.x;
+        p.prevY = p.y;
+
+        scene.tweens.add({
+            targets: p,
+            x: x + dx,
+            y:y+dy,
+            duration: speed,
+            yoyo:true,
+            repeat: -1,
+            ease:'Linear',
+            onUpdate: () => {
+                p.body.updateFromGameObject();
+            }
+        });
+
+        
+    }
+
+    createMovingPlatform(this, 1100, 500, 200,0, 2000);
+
+    this.physics.add.collider(player, platforms);
+
+    this.physics.add.collider(player, movingplatforms);
+
+
+
+    this.cameras.main.setBounds(0, 0, 2000, 500);
     this.cameras.main.startFollow(player, false, 1, 1);
 
     this.physics.add.collider(player, platforms);
@@ -96,8 +132,8 @@ function create() {
 
     this.physics.add.overlap(player, movingSpikes, playerDie, null, this);
 
-    deathZone = this.physics.add.staticSprite(500, 500, null);
-    deathZone.displayWidth = 1000;
+    deathZone = this.physics.add.staticSprite(1000, 500, null);
+    deathZone.displayWidth = 2000;
     deathZone.displayHeight = 1;
     deathZone.refreshBody();
     deathZone.visible = false;
@@ -132,6 +168,17 @@ function update() {
         player.setVelocityY(-400);
     }
 
+    movingplatforms.getChildren().forEach(p => {
+        let dx = p.x - p.prevX;
+        let dy = p.y - p.prevY;
+
+        if (player.body.touching.down && p.body.touching.up) {
+            player.x += dx;
+            player.y += dy;
+        }
+        p.prevX = p.x;
+        p.prevY = p.y;
+    });
     
 }
 
