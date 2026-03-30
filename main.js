@@ -28,6 +28,7 @@ let platforms;
 let movingplatforms;
 let staticSpikes;
 let movingSpikes;
+let goal;
 let deathZone;
 let isDead = false;
 let jumpSound;
@@ -38,6 +39,7 @@ function preload() {
     this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
     this.load.image('spike', 'https://labs.phaser.io/assets/sprites/spikedball.png');
     this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
+    this.load.image('goal','goal.png');
     this.load.audio('bgm', 'bgm.mp3');
     this.load.audio('jump', 'lumora_studios-pixel-jump-319167.mp3');
 }
@@ -135,6 +137,21 @@ function create() {
 
     this.physics.add.overlap(player, movingSpikes, playerDie, null, this);
 
+    goal = this.physics.add.staticGroup();
+    
+    goal.create(1900, 400, 'goal');
+
+    this.physics.add.overlap(player, goal, () => {
+        console.log("クリア！");
+
+        if (this.music) {
+            this.music.stop();
+            this.music.destroy();
+            this.music = null;
+        }
+        this.scene.restart();
+    }, null, this);
+
     deathZone = this.physics.add.staticSprite(1000, 500, null);
     deathZone.displayWidth = 2000;
     deathZone.displayHeight = 1;
@@ -145,14 +162,14 @@ function create() {
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    const music = this.sound.add('bgm', {
+    this.music = this.sound.add('bgm', {
         loop: true,
         volume: 0
     });
-    music.play();
+    this.music.play();
 
     this.tweens.add({
-        targets: music,
+        targets: this.music,
         volume: 0.5,
         duration: 100
     });
