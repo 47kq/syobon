@@ -22,17 +22,6 @@ const config = {
     }
 };
 
-let player;
-let cursors;
-let platforms;
-let movingplatforms;
-let staticSpikes;
-let movingSpikes;
-let goal;
-let deathZone;
-let isDead = false;
-let jumpSound;
-
 const game = new Phaser.Game(config);
 
 function preload() {
@@ -46,104 +35,117 @@ function preload() {
 
 function create() {
 
+    const groundData = [
+        { x: 150, y: 480, scaleX: 0.75, scaleY: 1 },
+        { x: 500, y: 480, scaleX: 0.25, scaleY: 3 },
+        { x: 700, y: 480, scaleX: 0.25, scaleY: 1 },
+        { x: 900, y: 480, scaleX: 0.25, scaleY: 1 },
+        { x: 1450, y: 480, scaleX: 0.1, scaleY: 2 },
+        { x: 1800, y: 480, scaleX: 1, scaleY: 1 }
+    ];
+
+    const movingPlatformData = [
+        { x: 1100, y: 500, scaleX: 0.25, scaleY: 1, dx: 200, dy: 0, duration: 2000 }
+    ];
+
+    const spikeData = [
+        { x: 200, y: 450, type: 'static' },
+        { x: 600, y: 440, type: 'static' },
+        { x: 400, y: 300, type: 'fall', vx: 100 },
+        { x: 800, y: 300, type: 'vertical', range: 200, duration: 1000 },
+        { x: 1600, y: 200, type: 'vertical', range: 300, duration: 1000 }
+    ];
+
+    
     this.physics.world.setBounds(0, 0, 2000, 500);
 
-    platforms = this.physics.add.staticGroup();
-    platforms.create(150, 480, 'ground').setScale(0.75, 1).refreshBody();
-    platforms.create(500, 480, 'ground').setScale(0.25, 3).refreshBody();
-    platforms.create(700, 480, 'ground').setScale(0.25, 1).refreshBody();
-    platforms.create(900, 480, 'ground').setScale(0.25, 1).refreshBody();
-    platforms.create(1450, 480, 'ground').setScale(0.1, 2).refreshBody();
-    platforms.create(1800, 480, 'ground').setScale(1, 1).refreshBody();
+    this.cursors = this.input.keyboard.createCursorKeys();
 
-    player = this.physics.add.sprite(50, 400, 'player');
-    player.setCollideWorldBounds(true);
+    this.player = this.physics.add.sprite(50, 400, 'player');
+    this.player.setCollideWorldBounds(true);
 
-    movingplatforms = this.physics.add.group({
+    this.isDead = false;
+
+    this.cameras.main.setBounds(0, 0, 2000, 500);
+    this.cameras.main.startFollow(this.player, false, 1, 1);
+
+
+
+    const platforms = this.physics.add.staticGroup();
+    groundData.forEach(data => {
+        platforms.create(data.x, data.y, 'ground')
+            .setScale(data.scaleX, data.scaleY)
+            .refreshBody();
+    });
+
+
+    this.movingplatforms = this.physics.add.group({
         allowGravity: false,
         immovable: true
     });
-
-    const createMovingPlatform=(scene, x, y, dx,dy, speed)=> {
-        let p = movingplatforms.create(x, y, 'ground').setScale(0.25, 1);
-
+    movingPlatformData.forEach(data => {
+        let p = this.movingplatforms.create(data.x, data.y, 'ground')
+            .setScale(data.scaleX, data.scaleY);
+        
         p.prevX = p.x;
         p.prevY = p.y;
 
-        scene.tweens.add({
+        this.tweens.add({
             targets: p,
-            x: x + dx,
-            y:y+dy,
-            duration: speed,
-            yoyo:true,
+            x: data.x + data.dx,
+            y: data.y + data.dy,
+            duration: data.duration,
+            yoyo: true,
             repeat: -1,
-            ease:'Linear',
-            onUpdate: () => {
-                p.body.updateFromGameObject();
-            }
+            ease: 'Linear',
+            onUpdate: () => { p.body.updateFromGameObject(); }
         });
-
-        
-    }
-
-    createMovingPlatform(this, 1100, 500, 200,0, 2000);
-
-    this.physics.add.collider(player, platforms);
-
-    this.physics.add.collider(player, movingplatforms);
-
-
-
-    this.cameras.main.setBounds(0, 0, 2000, 500);
-    this.cameras.main.startFollow(player, false, 1, 1);
-
-    this.physics.add.collider(player, platforms);
-
-    staticSpikes = this.physics.add.staticGroup();
-    staticSpikes.create(600, 440, 'spike').setScale(0.5).refreshBody();
-    staticSpikes.create(200, 450, 'spike').setScale(0.5).refreshBody();
-
-    this.physics.add.overlap(player, staticSpikes, () => {
-        playerDie();
-    }, null, this);
-
-    movingSpikes = this.physics.add.group();
-
-    let spikesData = [
-        { x: 400, y: 300, type: 'fall' ,vx:100},
-        { x: 800, y: 300, vy: 200, type: 'vertical',range:200,duration:1000 }
-    ];
-
-    spikesData.forEach(data => {
-        let spike = movingSpikes.create(data.x, data.y, 'spike').setScale(0.5);
-
-        if (data.type === 'fall') {
-            spike.setVelocityX(data.vx);
-            spike.setCollideWorldBounds(true);
-            spike.setBounce(1);
-        } 
-
-        if (data.type === 'vertical') {
-            spike.body.allowGravity = false;
-            this.tweens.add({
-                targets: spike,
-                y: data.y + data.range,
-                duration: data.duration,
-                yoyo: true,
-                repeat: -1
-            });
-        } 
     });
 
-    this.physics.add.overlap(player, movingSpikes, playerDie, null, this);
-
-    goal = this.physics.add.staticGroup();
+    const staticSpikes = this.physics.add.staticGroup();
+    const movingSpikes = this.physics.add.group();
+    this.physics.add.collider(this.player, platforms);
+    this.physics.add.collider(this.player, this.movingplatforms);
     
+
+    spikeData.forEach(data => {
+        if (data.type === 'static') {
+            staticSpikes.create(data.x, data.y, 'spike')
+                .setScale(0.5)
+                .refreshBody();
+        }
+        else {
+            let spike = movingSpikes.create(data.x, data.y, 'spike')
+                .setScale(0.5);
+            
+            if (data.type === 'fall') {
+                spike.setVelocityX(data.vx);
+                spike.setCollideWorldBounds(true);
+                spike.setBounce(1);
+            }
+            if (data.type === 'vertical') {
+                spike.body.allowGravity = false;
+
+                this.tweens.add({
+                    targets: spike,
+                    y: data.y + data.range,
+                    duration: data.duration,
+                    yoyo: true,
+                    repeat: -1
+                });
+            }
+        }
+    })
+
+    this.physics.add.overlap(this.player, staticSpikes, playerDie, null, this);
+    this.physics.add.overlap(this.player, movingSpikes, playerDie, null, this);
+
+
+
+    const goal = this.physics.add.staticGroup();
     goal.create(1900, 400, 'goal');
-
-    this.physics.add.overlap(player, goal, () => {
+    this.physics.add.overlap(this.player, goal, () => {
         console.log("クリア！");
-
         if (this.music) {
             this.music.stop();
             this.music.destroy();
@@ -152,15 +154,13 @@ function create() {
         this.scene.restart();
     }, null, this);
 
-    deathZone = this.physics.add.staticSprite(1000, 500, null);
+
+    const deathZone = this.physics.add.staticSprite(1000, 500, null);
     deathZone.displayWidth = 2000;
     deathZone.displayHeight = 1;
     deathZone.refreshBody();
     deathZone.visible = false;
-
-    this.physics.add.overlap(player, deathZone, playerDie, null, this);
-
-    cursors = this.input.keyboard.createCursorKeys();
+    this.physics.add.overlap(this.player, deathZone, playerDie, null, this);
 
     this.music = this.sound.add('bgm', {
         loop: true,
@@ -174,32 +174,32 @@ function create() {
         duration: 100
     });
 
-    jumpSound = this.sound.add('jump');
-
-
+    this.jumpSound = this.sound.add('jump');
 }
 
+
+
 function update() {
-    if (cursors.left.isDown) {
-        player.setVelocityX(-200);
-    } else if (cursors.right.isDown) {
-        player.setVelocityX(200);
+    if (this.cursors.left.isDown) {
+        this.player.setVelocityX(-200);
+    } else if (this.cursors.right.isDown) {
+        this.player.setVelocityX(200);
     } else {
-        player.setVelocityX(0);
+        this.player.setVelocityX(0);
     }
 
-    if (cursors.up.isDown && player.body.touching.down) {
-        player.setVelocityY(-400);
-        jumpSound.play();
+    if (this.cursors.up.isDown && this.player.body.touching.down) {
+        this.player.setVelocityY(-400);
+        this.jumpSound.play();
     }
 
-    movingplatforms.getChildren().forEach(p => {
+    this.movingplatforms.getChildren().forEach(p => {
         let dx = p.x - p.prevX;
         let dy = p.y - p.prevY;
 
-        if (player.body.touching.down && p.body.touching.up) {
-            player.x += dx;
-            player.y += dy;
+        if (this.player.body.touching.down && p.body.touching.up) {
+            this.player.x += dx;
+            this.player.y += dy;
         }
         p.prevX = p.x;
         p.prevY = p.y;
@@ -208,13 +208,13 @@ function update() {
 }
 
 function playerDie() {
-    if (isDead) return;
-    isDead = true;
+    if (this.isDead) return;
+    this.isDead = true;
 
-    player.setTint(0xff0000);
-    player.setVelocity(0, 0);
+    this.player.setTint(0xff0000);
+    this.player.setVelocity(0, 0);
 
-    player.body.enable = false;
+    this.player.body.enable = false;
 
     setTimeout(() => {
         location.reload();
