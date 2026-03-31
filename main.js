@@ -17,17 +17,14 @@ const level1Data = {
         { x: 800, y: 300, type: 'vertical', range: 200, duration: 1000 },
         { x: 1600, y: 200, type: 'vertical', range: 300, duration: 1000 }
     ],
+    enemyData: [
+    ],
     nextLevel: 'Level2'
 };
 
 const level2Data = {
     groundData: [
-        { x: 150, y: 200, scaleX: 0.75, scaleY: 1 },
-        { x: 500, y: 480, scaleX: 0.25, scaleY: 3 },
-        { x: 700, y: 480, scaleX: 0.25, scaleY: 1 },
-        { x: 900, y: 480, scaleX: 0.25, scaleY: 1 },
-        { x: 1450, y: 480, scaleX: 0.1, scaleY: 2 },
-        { x: 1800, y: 480, scaleX: 1, scaleY: 1 }
+        { x: 1000, y: 480, scaleX: 5, scaleY: 1 }
     ],
     movingPlatformData: [
         { x: 1100, y: 500, scaleX: 0.25, scaleY: 1, dx: 200, dy: 0, duration: 2000 }
@@ -38,6 +35,9 @@ const level2Data = {
         { x: 400, y: 300, type: 'fall', vx: 100 },
         { x: 800, y: 300, type: 'vertical', range: 200, duration: 1000 },
         { x: 1600, y: 200, type: 'vertical', range: 300, duration: 1000 }
+    ],
+    enemyData: [
+        {x:300,y:400,vx:100}
     ],
     nextLevel: 'Level1'
 };
@@ -69,7 +69,7 @@ class BaseLevel extends Phaser.Scene{
 
     create() {
         
-        const { groundData, movingPlatformData, spikeData, nextLevel }=this.levelData
+        const { groundData, movingPlatformData, spikeData,enemyData, nextLevel }=this.levelData
         this.physics.world.setBounds(0, 0, 2000, 500);
 
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -147,6 +147,18 @@ class BaseLevel extends Phaser.Scene{
         this.physics.add.overlap(this.player, staticSpikes, this.playerDie, null, this);
         this.physics.add.overlap(this.player, movingSpikes, this.playerDie, null, this);
 
+        this.enemies = this.physics.add.group();
+        enemyData.forEach(d => {
+            let enemy = this.enemies.create(d.x, d.y, 'player');
+            enemy.setVelocityX(d.vx);
+            enemy.setCollideWorldBounds(true);
+            enemy.setBounce(1);
+        })
+        this.physics.add.overlap(this.player, this.enemies, this.playerDie, null, this);
+        this.physics.add.collider(this.enemies, platforms);
+        this.physics.add.collider(this.enemies, this.movingplatforms);
+
+
         const goal = this.physics.add.staticGroup();
         goal.create(1900, 400, 'goal');
         this.physics.add.overlap(this.player, goal, () => {
@@ -217,9 +229,14 @@ class BaseLevel extends Phaser.Scene{
 
         this.player.body.enable = false;
 
-        setTimeout(() => {
-            location.reload();
-        }, 500);
+        if (this.music) {
+            this.music.stop();
+            this.music.destroy();
+            this.music=null;
+        }
+        this.time.delayedCall(500,() => {
+            this.scene.restart();
+        });
     }
 }
 
