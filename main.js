@@ -1,11 +1,16 @@
 const level1Data = {
     groundData: [
-        { x: 150, y: 480, scaleX: 0.75, scaleY: 1 },
-        { x: 500, y: 480, scaleX: 0.25, scaleY: 3 },
-        { x: 700, y: 480, scaleX: 0.25, scaleY: 1 },
-        { x: 900, y: 480, scaleX: 0.25, scaleY: 1 },
-        { x: 1450, y: 480, scaleX: 0.1, scaleY: 2 },
-        { x: 1800, y: 480, scaleX: 1, scaleY: 1 }
+        "X",
+        "X",
+        "X",
+        "X",
+        "X",
+        "X",
+        "X",
+        ".........GG.......................................",
+        ".........GG..................G....................",
+        "GGGGGGGG.GG..GG..GGG.........G.GGGGGGGGGGGGGGGGG.."
+        //2345678901234567890123456789012345678901234567890//
     ],
     movingPlatformData: [
         { x: 1100, y: 500, scaleX: 0.25, scaleY: 1, dx: 200, dy: 0, duration: 2000 }
@@ -24,7 +29,17 @@ const level1Data = {
 
 const level2Data = {
     groundData: [
-        { x: 1000, y: 480, scaleX: 5, scaleY: 1 }
+        "X",
+        "X",
+        "X",
+        "X",
+        "X",
+        "X",
+        "X",
+        "X",
+        "X",
+        "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"
+        //234567890123456789012345678012345678901234567890//
     ],
     movingPlatformData: [
         { x: 1100, y: 500, scaleX: 0.25, scaleY: 1, dx: 200, dy: 0, duration: 2000 }
@@ -37,7 +52,7 @@ const level2Data = {
         { x: 1600, y: 200, type: 'vertical', range: 300, duration: 1000 }
     ],
     enemyData: [
-        {x:300,y:400,vx:100}
+        {x:300,y:425,vx:-100}
     ],
     nextLevel: 'Level1'
 };
@@ -49,14 +64,16 @@ class BootScene extends Phaser.Scene{
     preload() {
         this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
         this.load.image('spike', 'https://labs.phaser.io/assets/sprites/spikedball.png');
-        this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
+        this.load.image('ground', 'brock.png');
+        this.load.image('movgrnd', 'https://labs.phaser.io/assets/sprites/platform.png');
+        this.load.image('enamy1', 'enamy1.png');
         this.load.image('goal','goal.png');
         this.load.audio('bgm', 'bgm.mp3');
         this.load.audio('jump', 'lumora_studios-pixel-jump-319167.mp3');
     }
 
     create() {
-        this.scene.start('Level1');
+        this.scene.start('Level2');
     }
 }
 
@@ -82,11 +99,16 @@ class BaseLevel extends Phaser.Scene{
         this.cameras.main.setBounds(0, 0, 2000, 500);
         this.cameras.main.startFollow(this.player, false, 1, 1);
 
-        const platforms = this.physics.add.staticGroup();
-        groundData.forEach(data => {
-            platforms.create(data.x, data.y, 'ground')
-                .setScale(data.scaleX, data.scaleY)
-                .refreshBody();
+        const blockSize = 50;
+        const platforms=this.physics.add.staticGroup()
+        this.levelData.groundData.forEach((row, y) => {
+            if (row[0] === 'X') return
+            row.split('').forEach((cell, x) => {
+                if (cell === 'G') {
+                    platforms.create(x * blockSize + blockSize / 2, y * blockSize + blockSize / 2, 'ground')
+                        .setScale(1, 1).refreshBody();
+                }
+            });
         });
 
         this.movingplatforms = this.physics.add.group({
@@ -94,7 +116,7 @@ class BaseLevel extends Phaser.Scene{
             immovable: true
         });
         movingPlatformData.forEach(data => {
-            let p = this.movingplatforms.create(data.x, data.y, 'ground')
+            let p = this.movingplatforms.create(data.x, data.y, 'movgrnd')
                 .setScale(data.scaleX, data.scaleY);
             
             p.prevX = p.x;
@@ -149,12 +171,19 @@ class BaseLevel extends Phaser.Scene{
 
         this.enemies = this.physics.add.group();
         enemyData.forEach(d => {
-            let enemy = this.enemies.create(d.x, d.y, 'player');
+            let enemy = this.enemies.create(d.x, d.y, 'enamy1');
             enemy.setVelocityX(d.vx);
             enemy.setCollideWorldBounds(true);
-            enemy.setBounce(1);
+            enemy.setBounce(1,0);
         })
-        this.physics.add.overlap(this.player, this.enemies, this.playerDie, null, this);
+        this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
+            if (this.player.body.velocity.y > 0 && this.player.y < enemy.y - 10) {
+                enemy.destroy();
+                this.player.setVelocityY(-250);
+            } else {
+                this.playerDie();
+            }
+        }, null, this);
         this.physics.add.collider(this.enemies, platforms);
         this.physics.add.collider(this.enemies, this.movingplatforms);
 
