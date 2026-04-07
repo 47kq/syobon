@@ -38,11 +38,14 @@ const level2Data = {
         "X",
         "X",
         "X",
-        "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"
+        "GGGG...GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"
         //234567890123456789012345678012345678901234567890//
     ],
     movingPlatformData: [
         { x: 1100, y: 500, scaleX: 0.25, scaleY: 1, dx: 200, dy: 0, duration: 2000 }
+    ],
+    fakeGroundData: [
+        {x:225,y:475,width:3,bridgeId:1}
     ],
     spikeData: [
         { x: 200, y: 200, type: 'static' },
@@ -53,6 +56,9 @@ const level2Data = {
     ],
     enemyData: [
         {x:300,y:425,vx:-100}
+    ],
+    trapData: [
+        {x:500,y:450}
     ],
     nextLevel: 'Level1'
 };
@@ -67,6 +73,7 @@ class BootScene extends Phaser.Scene{
         this.load.image('ground', 'brock.png');
         this.load.image('movgrnd', 'https://labs.phaser.io/assets/sprites/platform.png');
         this.load.image('enamy1', 'enamy1.png');
+        this.load.image('fire', 'fire.png');
         this.load.image('goal','goal.png');
         this.load.audio('bgm', 'bgm.mp3');
         this.load.audio('jump', 'lumora_studios-pixel-jump-319167.mp3');
@@ -86,7 +93,7 @@ class BaseLevel extends Phaser.Scene{
 
     create() {
         
-        const { groundData, movingPlatformData, spikeData,enemyData, nextLevel }=this.levelData
+        const { groundData, movingPlatformData,fakeGroundData,spikeData,enemyData,trapData, nextLevel }=this.levelData
         this.physics.world.setBounds(0, 0, 2000, 500);
 
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -136,6 +143,39 @@ class BaseLevel extends Phaser.Scene{
         this.physics.add.collider(this.player, platforms);
         this.physics.add.collider(this.player, this.movingplatforms);
         
+        this.fakePlatforms = this.physics.add.staticGroup();
+
+        fakeGroundData?.forEach(d => {
+            const key = `fakeBridge_${d.width}`;
+            if (!this.textures.exists(key)) {
+                const rt = this.make.renderTexture({
+                    width: d.width * 50,
+                    height: 50,
+                    add: false
+                });
+                for (let i = 0; i < d.width; i++) {
+                    rt.draw('ground', i * 50, 0);
+                }
+                rt.saveTexture(key);
+                rt.destroy();
+            }
+            const block = this.fakePlatforms.create(
+                d.x + d.width * 25 - 25,
+                d.y,
+                key
+            );
+            block.isBroken = false;
+        });
+
+        this.physics.add.collider(this.player, this.fakePlatforms, (player, block) => {
+            if (block.isBroken) return;
+            block.isBroken = true;
+
+            this.time.delayedCall(100, () => {
+                block.destroy();
+            });
+        });
+
         const staticSpikes = this.physics.add.staticGroup();
         const movingSpikes = this.physics.add.group();
         spikeData.forEach(data => {
@@ -169,6 +209,20 @@ class BaseLevel extends Phaser.Scene{
         this.physics.add.overlap(this.player, staticSpikes, this.playerDie, null, this);
         this.physics.add.overlap(this.player, movingSpikes, this.playerDie, null, this);
 
+        
+        this.traps = this.physics.add.staticGroup();
+        trapData?.forEach(data => {
+            let spike = this.traps.create(data.x, data.y, 'fire')
+                .setScale(1)
+                .refreshBody();
+            
+            spike.setAlpha(0);
+        })
+        this.physics.add.overlap(this.player, this.traps, (player, spike) => {
+            spike.setAlpha(1);
+            this.playerDie();
+        }, null, this);
+
         this.enemies = this.physics.add.group();
         enemyData.forEach(d => {
             let enemy = this.enemies.create(d.x, d.y, 'enamy1');
@@ -186,6 +240,7 @@ class BaseLevel extends Phaser.Scene{
         }, null, this);
         this.physics.add.collider(this.enemies, platforms);
         this.physics.add.collider(this.enemies, this.movingplatforms);
+        this.physics.add.collider(this.enemies, this.fakePlatforms);
 
 
         const goal = this.physics.add.staticGroup();
@@ -287,7 +342,7 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 800 },
-            debug: true
+            debug: false
         }
     },
     scale: {
