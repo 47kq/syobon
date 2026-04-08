@@ -60,6 +60,10 @@ const level2Data = {
     trapData: [
         {x:500,y:450}
     ],
+    questionBlockData: [
+        { x: 425, y: 350, reward: 'spike' },
+        {x:475,y:350,reward:'spike',invisible: true }
+    ],
     nextLevel: 'Level1'
 };
 
@@ -74,6 +78,7 @@ class BootScene extends Phaser.Scene{
         this.load.image('movgrnd', 'https://labs.phaser.io/assets/sprites/platform.png');
         this.load.image('enamy1', 'enamy1.png');
         this.load.image('fire', 'fire.png');
+        this.load.image('question', 'block_gold.png');
         this.load.image('goal','goal.png');
         this.load.audio('bgm', 'bgm.mp3');
         this.load.audio('jump', 'lumora_studios-pixel-jump-319167.mp3');
@@ -93,7 +98,16 @@ class BaseLevel extends Phaser.Scene{
 
     create() {
         
-        const { groundData, movingPlatformData,fakeGroundData,spikeData,enemyData,trapData, nextLevel }=this.levelData
+        const {
+            groundData,
+            movingPlatformData,
+            fakeGroundData,
+            spikeData,
+            enemyData,
+            trapData,
+            questionBlockData,
+            nextLevel
+        } = this.levelData;
         this.physics.world.setBounds(0, 0, 2000, 500);
 
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -255,6 +269,47 @@ class BaseLevel extends Phaser.Scene{
             this.scene.start(nextLevel);
         }, null, this);
 
+        this.questionBlocks = this.physics.add.staticGroup();
+        questionBlockData?.forEach(d => {
+            let block = this.questionBlocks.create(d.x, d.y, 'question');
+            block.used = false;
+            block.reward = d.reward;
+            block.invisible = d.invisible ?? false;
+            if (block.invisible) {
+                block.setAlpha(0);
+                block.body.checkCollision.up = false;
+                block.body.checkCollision.left = false;
+                block.body.checkCollision.right = false;
+                block.body.checkCollision.down = true;
+            }
+        });
+        this.physics.add.collider(this.player, this.questionBlocks, (player, block) => {
+            if (block.used) return;
+            if (player.body.touching.up && block.body.touching.down){
+                block.used = true;
+                this.tweens.add({
+                    targets: block,
+                    y: block.y - 10,
+                    duration: 80,
+                    yoyo: true
+                });
+                if (block.invisible) {
+                    block.setAlpha(1);
+                    block.body.checkCollision.up = true;
+                    block.body.checkCollision.left = true;
+                    block.body.checkCollision.right = true;
+                    block.body.checkCollision.down = true;
+                }
+                if (block.reward === 'spike') {
+                    let spike = this.physics.add.sprite(block.x, block.y - 50, 'spike');
+                    spike.setScale(2);
+                    spike.setImmovable(true);
+                    spike.body.allowGravity = false;
+                    this.physics.add.overlap(this.player, spike, this.playerDie, null, this);
+                }
+            }
+        });
+
         const deathZone = this.physics.add.staticSprite(1000, 500, null);
         deathZone.displayWidth = 2000;
         deathZone.displayHeight = 1;
@@ -342,7 +397,7 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 800 },
-            debug: false
+            debug: true
         }
     },
     scale: {
